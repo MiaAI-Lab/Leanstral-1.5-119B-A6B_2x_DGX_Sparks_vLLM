@@ -327,8 +327,10 @@ ssh 10.0.0.2 "docker ps --filter name=leanstral-vllm"
   `ENABLE_EAGLE=1 ./start.sh` using
   `mistralai/Mistral-Small-4-119B-2603-eagle`, matching the Mistral Small 4 vLLM
   recipe. No Leanstral-specific EAGLE draft head is documented at the time this
-  README was written. In local testing, EAGLE was active during an
-  `execute_model` timeout in `shm_broadcast`, so keep it off for stability.
+  README was written. In local testing, EAGLE is not stable for this Leanstral
+  setup: it was active during an `execute_model` timeout in `shm_broadcast` and
+  caused chat crashes. Keep it off unless you are explicitly testing speculative
+  decoding.
 - `MM_PROCESSOR_CACHE_TYPE=lru` is set explicitly because the shared-memory
   multimodal processor cache path emitted `shared_worker_lock` warnings in this
   multi-node Ray setup.

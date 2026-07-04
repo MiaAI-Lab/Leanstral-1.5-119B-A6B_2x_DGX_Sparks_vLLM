@@ -5,15 +5,16 @@ MODEL_ID="${MODEL_ID:-mistralai/Leanstral-1.5-119B-A6B}"
 IMAGE="${VLLM_IMAGE:-vllm/vllm-openai:v0.24.0}"
 HEAD_IP="${HEAD_IP:-10.0.0.1}"
 WORKER_IP="${WORKER_IP:-10.0.0.2}"
-PORT="${PORT:-8001}"
+PORT="${PORT:-8888}"
 RAY_PORT="${RAY_PORT:-6379}"
 MAX_MODEL_LEN="${MAX_MODEL_LEN:-262144}"
 MAX_NUM_SEQS="${MAX_NUM_SEQS:-7}"
+MAX_NUM_BATCHED_TOKENS="${MAX_NUM_BATCHED_TOKENS:-8192}"
 TENSOR_PARALLEL_SIZE="${TENSOR_PARALLEL_SIZE:-2}"
 GPU_MEMORY_UTILIZATION="${GPU_MEMORY_UTILIZATION:-0.85}"
 ENFORCE_EAGER="${ENFORCE_EAGER:-1}"
 CONTAINER_PREFIX="${CONTAINER_PREFIX:-leanstral-vllm}"
-HF_HOME="${HF_HOME:-/mnt/models/.cache/huggingface}"
+HF_HOME="${HF_HOME:-/home/zurih/.cache/huggingface}"
 WORKER_HF_HOME="${WORKER_HF_HOME:-/mnt/spark1/models/.cache/huggingface}"
 CX7_IFACE="${CX7_IFACE:-enp1s0f1np1}"
 ATTENTION_BACKEND="${ATTENTION_BACKEND:-}"
@@ -97,6 +98,7 @@ start_ray_head() {
         --port '${PORT}' \
         --max-model-len '${MAX_MODEL_LEN}' \
         --max-num-seqs '${MAX_NUM_SEQS}' \
+        --max-num-batched-tokens '${MAX_NUM_BATCHED_TOKENS}' \
         --tensor-parallel-size '${TENSOR_PARALLEL_SIZE}' \
         --gpu-memory-utilization '${GPU_MEMORY_UTILIZATION}' \
         ${eager_arg} \

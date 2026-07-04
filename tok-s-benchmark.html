@@ -1,0 +1,1308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Leanstral-1.5-119B-A6B — Throughput Benchmark</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #f2f0eb;
+    --bg-card: #ffffff;
+    --bg-elevated: #f8f7f4;
+    --bg-subtle: #e6e4dd;
+    --border: #c8c4ba;
+    --border-light: #d8d4cb;
+    --text: #0f0f0d;
+    --text-secondary: #3d3d38;
+    --text-muted: #5e5e56;
+    --accent: #1a5c5c;
+    --accent-glow: #d4eded;
+    --accent-dark: #0f3d3d;
+    --teal: #1a6b5c;
+    --teal-glow: #d4f0ea;
+    --amber: #9a6800;
+    --amber-glow: #fce8b0;
+    --success: #1a6b3c;
+    --success-bg: #d4eddf;
+    --warning: #9a6800;
+    --warning-bg: #fce8b0;
+    --danger: #a82820;
+    --shadow-sm: 0 1px 4px rgba(15,15,13,0.10);
+    --shadow-md: 0 4px 18px rgba(15,15,13,0.14);
+    --shadow-lg: 0 8px 36px rgba(15,15,13,0.18);
+    --radius: 14px;
+    --radius-sm: 8px;
+    --font: 'DM Sans', system-ui, sans-serif;
+    --mono: 'JetBrains Mono', ui-monospace, monospace;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(26,92,92,0.07), transparent),
+      radial-gradient(ellipse 60% 40% at 100% 0%, rgba(154,104,0,0.05), transparent);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 0 28px 80px;
+  }
+
+  /* Header */
+  header {
+    padding: 56px 0 48px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 40px;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent-dark);
+    background: var(--accent-glow);
+    border: 1px solid var(--accent);
+    padding: 6px 14px;
+    border-radius: 100px;
+    margin-bottom: 20px;
+  }
+
+  .badge-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.85); }
+  }
+
+  h1 {
+    font-size: clamp(1.8rem, 4vw, 2.6rem);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    margin-bottom: 12px;
+    color: var(--text);
+  }
+
+  .subtitle {
+    font-size: 1.05rem;
+    color: var(--text-secondary);
+    max-width: 640px;
+  }
+
+  .meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    margin-top: 24px;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+  }
+
+  .meta-row span {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .meta-row strong {
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+
+  /* KPI Cards */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 40px;
+  }
+
+  .kpi-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 22px 24px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+
+  .kpi-card:hover {
+    border-color: var(--border-light);
+    transform: translateY(-2px);
+  }
+
+  .kpi-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--teal));
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .kpi-card:hover::before { opacity: 1; }
+
+  .kpi-card.highlight {
+    border-color: var(--accent);
+    background: linear-gradient(135deg, var(--bg-card) 0%, var(--accent-glow) 100%);
+  }
+
+  .kpi-card.highlight::before { opacity: 1; }
+
+  .kpi-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+  }
+
+  .kpi-value {
+    font-family: var(--mono);
+    font-size: 1.75rem;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.2;
+  }
+
+  .kpi-value .unit {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    font-weight: 400;
+    margin-left: 4px;
+  }
+
+  .kpi-delta {
+    font-size: 0.8rem;
+    margin-top: 8px;
+    color: var(--success);
+    font-weight: 500;
+  }
+
+  .kpi-delta.warn { color: var(--amber); }
+
+  /* Summary table */
+  .summary-section {
+    margin-bottom: 48px;
+  }
+
+  .summary-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-md);
+    overflow: hidden;
+  }
+
+  .summary-card-header {
+    padding: 24px 28px 0;
+  }
+
+  .summary-card-header h2 {
+    font-size: 1.35rem;
+    margin-bottom: 6px;
+  }
+
+  .summary-card-header p {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    margin-bottom: 20px;
+  }
+
+  .summary-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.95rem;
+  }
+
+  .summary-table thead {
+    background: var(--accent-dark);
+    color: #fff;
+  }
+
+  .summary-table th {
+    padding: 14px 20px;
+    text-align: left;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: #fff;
+  }
+
+  .summary-table th.num { text-align: right; color: #fff; }
+
+  .summary-table td {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-light);
+    color: var(--text-secondary);
+    vertical-align: middle;
+  }
+
+  .summary-table td.num {
+    text-align: right;
+    font-family: var(--mono);
+    font-size: 0.92rem;
+    font-weight: 500;
+    color: var(--text);
+  }
+
+  .summary-table tbody tr:last-child td { border-bottom: none; }
+
+  .summary-table tbody tr:nth-child(even) { background: var(--bg-elevated); }
+
+  .summary-table tbody tr:hover {
+    background: var(--success);
+  }
+
+  .summary-table tbody tr:hover td,
+  .summary-table tbody tr:hover .conc-cell {
+    color: #fff;
+  }
+
+  .summary-table tbody tr:hover .conc-num {
+    background: rgba(255,255,255,0.2);
+    border-color: rgba(255,255,255,0.4);
+    color: #fff;
+  }
+
+  .summary-table tbody tr:hover .fast,
+  .summary-table tbody tr:hover .best {
+    background: rgba(255,255,255,0.2) !important;
+    color: #fff !important;
+  }
+
+  .summary-table .conc-cell {
+    font-weight: 600;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .summary-table .conc-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: var(--accent-glow);
+    border: 1px solid var(--accent);
+    color: var(--accent-dark);
+    font-family: var(--mono);
+    font-size: 0.95rem;
+  }
+
+  .summary-table .best {
+    background: var(--success) !important;
+    color: #fff !important;
+    font-weight: 600;
+    border-radius: 6px;
+    padding: 4px 10px;
+    display: inline-block;
+  }
+
+  .summary-table .fast {
+    background: var(--accent-glow);
+    color: var(--accent-dark);
+    font-weight: 600;
+    border-radius: 6px;
+    padding: 4px 10px;
+    display: inline-block;
+  }
+
+  .summary-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    padding: 16px 28px 24px;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    border-top: 1px solid var(--border-light);
+    background: var(--bg-elevated);
+  }
+
+  .summary-legend span {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .legend-swatch {
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+  }
+
+  .legend-swatch.best { background: var(--success); border: 1px solid var(--success); }
+  .legend-swatch.fast { background: var(--accent-glow); border: 1px solid var(--accent); }
+
+  .results-lines {
+    padding: 20px 28px 24px;
+    border-top: 1px solid var(--border-light);
+    background: var(--bg-card);
+  }
+
+  .results-lines h3 {
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 14px;
+  }
+
+  .results-lines pre {
+    font-family: var(--mono);
+    font-size: 0.92rem;
+    line-height: 1.9;
+    color: var(--text);
+    white-space: pre-wrap;
+    margin: 0;
+  }
+
+  .results-lines .tok {
+    color: var(--accent-dark);
+    font-weight: 600;
+  }
+
+  /* Section */
+  section { margin-bottom: 48px; }
+
+  .section-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+
+  h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .section-desc {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+  }
+
+  /* Charts */
+  .chart-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 20px;
+  }
+
+  @media (max-width: 900px) {
+    .chart-grid { grid-template-columns: 1fr; }
+  }
+
+  .chart-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .chart-card.full { grid-column: 1 / -1; }
+
+  .chart-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  .chart-subtitle {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    margin-bottom: 20px;
+  }
+
+  .chart-wrap {
+    position: relative;
+    height: 280px;
+  }
+
+  .chart-wrap.tall { height: 340px; }
+
+  /* Insights */
+  .insights {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+  }
+
+  .insight-card {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px 22px;
+  }
+
+  .insight-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    margin-bottom: 12px;
+  }
+
+  .insight-icon.blue { background: var(--accent-glow); color: var(--accent-dark); }
+  .insight-icon.teal { background: var(--teal-glow); color: var(--teal); }
+  .insight-icon.amber { background: var(--amber-glow); color: var(--amber); }
+
+  .insight-card h3 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+
+  .insight-card p {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    line-height: 1.55;
+  }
+
+  /* Table */
+  .table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg-card);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+  }
+
+  .table-wrap thead {
+    background: var(--bg-elevated);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .table-wrap th {
+    text-align: left;
+    padding: 14px 16px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  .table-wrap th.num,
+  .table-wrap td.num { text-align: right; }
+
+  .table-wrap td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-secondary);
+    white-space: nowrap;
+  }
+
+  td.mono {
+    font-family: var(--mono);
+    font-size: 0.82rem;
+    color: var(--text);
+  }
+
+  tr:last-child td { border-bottom: none; }
+
+  tbody tr {
+    transition: background 0.15s;
+    cursor: pointer;
+  }
+
+  tbody tr:hover { background: var(--bg-subtle); }
+
+  tbody tr.active {
+    background: var(--accent-glow);
+  }
+
+  tbody tr.active td:first-child {
+    box-shadow: inset 3px 0 0 var(--accent);
+  }
+
+  .concurrency-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: var(--bg-subtle);
+    border: 1px solid var(--border);
+    font-family: var(--mono);
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--accent);
+  }
+
+  .bar-cell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    justify-content: flex-end;
+  }
+
+  .mini-bar {
+    width: 80px;
+    height: 6px;
+    background: var(--bg-subtle);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .mini-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    background: linear-gradient(90deg, var(--accent-dark), var(--teal));
+    transition: width 0.4s ease;
+  }
+
+  /* Detail panels */
+  .detail-panels { margin-top: 24px; }
+
+  .detail-panel {
+    display: none;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    animation: fadeIn 0.3s ease;
+  }
+
+  .detail-panel.visible { display: block; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .detail-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .detail-header h3 {
+    font-size: 1rem;
+    font-weight: 600;
+  }
+
+  .detail-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+    margin-bottom: 20px;
+    padding: 16px 20px;
+    background: var(--bg-elevated);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+  }
+
+  .detail-stat .label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+  }
+
+  .detail-stat .value {
+    font-family: var(--mono);
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--text);
+  }
+
+  .runs-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 12px;
+  }
+
+  .run-card {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 16px;
+  }
+
+  .run-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+
+  .run-id {
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--accent);
+  }
+
+  .run-metrics {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    font-size: 0.78rem;
+  }
+
+  .run-metrics dt { color: var(--text-muted); }
+  .run-metrics dd {
+    font-family: var(--mono);
+    color: var(--text);
+    text-align: right;
+  }
+
+  .run-preview {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  footer {
+    margin-top: 60px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    text-align: center;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="badge"><span class="badge-dot"></span> Throughput Benchmark</div>
+    <h1>Leanstral-1.5-119B-A6B</h1>
+    <p class="subtitle">Concurrent session scaling analysis — generation and end-to-end token throughput across 1–7 parallel inference sessions.</p>
+    <div class="meta-row">
+      <span><strong>Prompt size:</strong> 30 tokens</span>
+      <span><strong>Test runs:</strong> 1 baseline + 2–7 concurrent</span>
+      <span><strong>Date:</strong> July 4, 2026</span>
+    </div>
+  </header>
+
+  <div class="kpi-grid">
+    <div class="kpi-card highlight">
+      <div class="kpi-label">Peak Aggregate Throughput</div>
+      <div class="kpi-value">108.13<span class="unit">gen tok/s</span></div>
+      <div class="kpi-delta">↑ 5.1× vs single-session baseline</div>
+    </div>
+    <div class="kpi-card highlight">
+      <div class="kpi-label">Peak E2E Throughput</div>
+      <div class="kpi-value">115.66<span class="unit">tok/s</span></div>
+      <div class="kpi-delta">At 7 concurrent sessions</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Best Per-Session Gen</div>
+      <div class="kpi-value">21.08<span class="unit">tok/s</span></div>
+      <div class="kpi-delta">Single-session baseline</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Best Concurrent Per-Run</div>
+      <div class="kpi-value">18.49<span class="unit">tok/s</span></div>
+      <div class="kpi-delta warn">↓ 12% vs baseline at 4 sessions</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Total Tokens Generated</div>
+      <div class="kpi-value">3,017</div>
+      <div class="kpi-delta">7-session cumulative batch</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Fastest Wall Clock</div>
+      <div class="kpi-value">20.9<span class="unit">s</span></div>
+      <div class="kpi-delta">Single-session baseline</div>
+    </div>
+  </div>
+
+  <section class="summary-section">
+    <div class="summary-card">
+      <div class="summary-card-header">
+        <h2>Results at a Glance</h2>
+        <p>Throughput and latency across 1–7 concurrent sessions. Higher cumulative tok/s = more total output; lower wall clock = faster batch completion.</p>
+      </div>
+      <table class="summary-table" id="summaryTableMain">
+        <thead>
+          <tr>
+            <th>Concurrency</th>
+            <th class="num">Cum Gen tok/s</th>
+            <th class="num">Cum E2E tok/s</th>
+            <th class="num">Avg Gen tok/s</th>
+            <th class="num">Wall Clock</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <div class="summary-legend">
+        <span><span class="legend-swatch best"></span> Best in column</span>
+        <span><span class="legend-swatch fast"></span> Fastest wall clock</span>
+      </div>
+      <div class="results-lines">
+        <h3>Quick Summary</h3>
+        <pre id="resultsLines"></pre>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-header">
+      <h2>Throughput Scaling</h2>
+      <span class="section-desc">Cumulative vs per-session metrics by concurrency level</span>
+    </div>
+    <div class="chart-grid">
+      <div class="chart-card full">
+        <div class="chart-title">Aggregate Throughput vs Concurrency</div>
+        <div class="chart-subtitle">Cumulative generation and end-to-end tok/s across all parallel sessions</div>
+        <div class="chart-wrap tall">
+          <canvas id="chartAggregate"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Per-Session Average</div>
+        <div class="chart-subtitle">Average generation tok/s per individual run</div>
+        <div class="chart-wrap">
+          <canvas id="chartPerRun"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Wall Clock Time</div>
+        <div class="chart-subtitle">Total elapsed time for each concurrency batch</div>
+        <div class="chart-wrap">
+          <canvas id="chartWallClock"></canvas>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-header">
+      <h2>Key Insights</h2>
+    </div>
+    <div class="insights">
+      <div class="insight-card">
+        <div class="insight-icon blue">📈</div>
+        <h3>Near-linear aggregate scaling</h3>
+        <p>Cumulative generation throughput rises from 21 tok/s (1 session) to 108 tok/s (7 sessions) — roughly 5.1× throughput gain. Each added session contributes meaningful aggregate capacity.</p>
+      </div>
+      <div class="insight-card">
+        <div class="insight-icon teal">⚡</div>
+        <h3>Sweet spot at 4 concurrent</h3>
+        <p>Four parallel sessions deliver the best per-run generation rate under load (~18.5 tok/s) with strong aggregate throughput (72.7 tok/s) in just 21.7 s. Best balance of speed and total output.</p>
+      </div>
+      <div class="insight-card">
+        <div class="insight-icon amber">⚠️</div>
+        <h3>Per-session degradation</h3>
+        <p>Individual session throughput drops ~26% under load (21 → ~15.5 tok/s at 7 concurrent). Resource contention increases elapsed time per request from ~21 s to ~28 s.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-header">
+      <h2>Detailed Results</h2>
+      <span class="section-desc">Click a row to expand per-run breakdown</span>
+    </div>
+    <div class="table-wrap">
+      <table id="summaryTable">
+        <thead>
+          <tr>
+            <th>Concurrency</th>
+            <th class="num">Wall Clock</th>
+            <th class="num">Gen Tokens</th>
+            <th class="num">Cum Gen tok/s</th>
+            <th class="num">Cum E2E tok/s</th>
+            <th class="num">Avg Gen tok/s</th>
+            <th class="num">Avg E2E tok/s</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="detail-panels" id="detailPanels"></div>
+  </section>
+
+  <footer>
+    Leanstral-1.5-119B-A6B throughput benchmark &middot; Generated July 4, 2026
+  </footer>
+</div>
+
+<script>
+const BENCHMARK = {
+  model: "Leanstral-1.5-119B-A6B",
+  promptTokens: 30,
+  sessions: [
+    {
+      concurrency: 1,
+      wallClock: 20.874,
+      totalPrompt: 30,
+      totalGenerated: 440,
+      totalTokens: 470,
+      cumGenTps: 21.08,
+      cumE2eTps: 22.52,
+      avgGenTps: 21.08,
+      avgE2eTps: 22.52,
+      runs: [{
+        id: 1, elapsed: 20.874, prompt: 30, generated: 440, total: 470,
+        genTps: 21.08, e2eTps: 22.52,
+        preview: "The **theory of evolution** is the scientific explanation for how life changes over time. It's not a guess or hypothesis—it's one of the most well-supported theories in all of"
+      }]
+    },
+    {
+      concurrency: 2,
+      wallClock: 33.290,
+      totalPrompt: 60,
+      totalGenerated: 857,
+      totalTokens: 917,
+      cumGenTps: 25.74,
+      cumE2eTps: 27.55,
+      avgGenTps: 13.37,
+      avgE2eTps: 14.31,
+      runs: [
+        { id: 1, elapsed: 30.744, prompt: 30, generated: 401, total: 431, genTps: 13.04, e2eTps: 14.02,
+          preview: "I'll explain the theory of evolution clearly, covering its core principles and evidence. ## What Evolution Is Evolution is the process by which populations of organisms change over generations. It's" },
+        { id: 2, elapsed: 33.289, prompt: 30, generated: 456, total: 486, genTps: 13.70, e2eTps: 14.60,
+          preview: "I'll explain the theory of evolution clearly and comprehensively. ## What Is Evolution? Evolution is the process by which populations of organisms change over generations. It explains how life diver" }
+      ]
+    },
+    {
+      concurrency: 3,
+      wallClock: 26.812,
+      totalPrompt: 90,
+      totalGenerated: 1287,
+      totalTokens: 1377,
+      cumGenTps: 48.00,
+      cumE2eTps: 51.36,
+      avgGenTps: 17.66,
+      avgE2eTps: 18.91,
+      runs: [
+        { id: 3, elapsed: 22.528, prompt: 30, generated: 394, total: 424, genTps: 17.49, e2eTps: 18.82,
+          preview: "The **Theory of Evolution** is one of the most well-supported scientific explanations for how life changes over time. Here's a clear breakdown: ## Core Idea Species change gradually over generations" },
+        { id: 2, elapsed: 23.474, prompt: 30, generated: 413, total: 443, genTps: 17.59, e2eTps: 18.87,
+          preview: "The **Theory of Evolution** is one of the most well-supported scientific explanations for how life changes over time. Here's a clear breakdown: ## Core Idea Evolution is the process by which populat" },
+        { id: 1, elapsed: 26.811, prompt: 30, generated: 480, total: 510, genTps: 17.90, e2eTps: 19.02,
+          preview: "The **Theory of Evolution** is one of the most well-supported scientific explanations for how life changes over time. Here's a clear breakdown: ## Core Idea Evolution is the process by which populat" }
+      ]
+    },
+    {
+      concurrency: 4,
+      wallClock: 21.675,
+      totalPrompt: 120,
+      totalGenerated: 1576,
+      totalTokens: 1696,
+      cumGenTps: 72.71,
+      cumE2eTps: 78.25,
+      avgGenTps: 18.49,
+      avgE2eTps: 19.90,
+      runs: [
+        { id: 1, elapsed: 20.942, prompt: 30, generated: 387, total: 417, genTps: 18.48, e2eTps: 19.91,
+          preview: "The **Theory of Evolution** is one of the most well-supported scientific explanations for how life changes over time. Here's a clear breakdown: ## Core Idea Evolution is the process by which populat" },
+        { id: 2, elapsed: 20.943, prompt: 30, generated: 387, total: 417, genTps: 18.48, e2eTps: 19.91,
+          preview: "The **Theory of Evolution** is one of the most well-supported scientific explanations for how life changes over time. Here's a clear breakdown: ## Core Idea Evolution is the process by which populat" },
+        { id: 3, elapsed: 21.673, prompt: 30, generated: 401, total: 431, genTps: 18.50, e2eTps: 19.89,
+          preview: "The **Theory of Evolution** is one of the most well-supported scientific explanations for how life on Earth changes over time. Here's a clear breakdown: ## Core Idea Species change gradually over gen" },
+        { id: 4, elapsed: 21.673, prompt: 30, generated: 401, total: 431, genTps: 18.50, e2eTps: 19.89,
+          preview: "The **Theory of Evolution** is one of the most well-supported scientific explanations for how life on Earth changes over time. Here's a clear breakdown: ## Core Idea Species change gradually over gen" }
+      ]
+    },
+    {
+      concurrency: 5,
+      wallClock: 26.708,
+      totalPrompt: 150,
+      totalGenerated: 2030,
+      totalTokens: 2180,
+      cumGenTps: 76.01,
+      cumE2eTps: 81.62,
+      avgGenTps: 15.67,
+      avgE2eTps: 16.82,
+      runs: [
+        { id: 1, elapsed: 25.401, prompt: 30, generated: 396, total: 426, genTps: 15.59, e2eTps: 16.77,
+          preview: "The **Theory of Evolution** is one of the most well-supported scientific explanations for how life changes over time. Here's a clear breakdown: ## Core Idea Evolution is the process by which populat" },
+        { id: 2, elapsed: 26.657, prompt: 30, generated: 420, total: 450, genTps: 15.76, e2eTps: 16.88,
+          preview: "I'll explain the theory of evolution by natural selection, the central framework of modern biology. ## Core Principles **Variation** — Individuals in a population vary in their traits (size, color," },
+        { id: 3, elapsed: 25.400, prompt: 30, generated: 396, total: 426, genTps: 15.59, e2eTps: 16.77,
+          preview: "The **Theory of Evolution** is one of the most well-supported scientific explanations for how life changes over time. Here's a clear breakdown: ## Core Idea Evolution is the process by which populat" },
+        { id: 4, elapsed: 26.706, prompt: 30, generated: 422, total: 452, genTps: 15.80, e2eTps: 16.93,
+          preview: "I'll explain the theory of evolution clearly, covering its core principles and evidence. ## What Evolution Is Evolution is the process by which populations of organisms change over generations. It's" },
+        { id: 5, elapsed: 25.400, prompt: 30, generated: 396, total: 426, genTps: 15.59, e2eTps: 16.77,
+          preview: "The **Theory of Evolution** is one of the most well-supported scientific explanations for how life changes over time. Here's a clear breakdown: ## Core Idea Evolution is the process by which populat" }
+      ]
+    },
+    {
+      concurrency: 6,
+      wallClock: 26.045,
+      totalPrompt: 180,
+      totalGenerated: 2585,
+      totalTokens: 2765,
+      cumGenTps: 99.25,
+      cumE2eTps: 106.16,
+      avgGenTps: 16.59,
+      avgE2eTps: 17.74,
+      runs: [
+        { id: 1, elapsed: 26.044, prompt: 30, generated: 432, total: 462, genTps: 16.59, e2eTps: 17.74,
+          preview: "The **Theory of Evolution** is one of the most well-supported scientific explanations for how life changes over time. Here's a clear breakdown: ## Core Idea Species change gradually over generations" },
+        { id: 2, elapsed: 26.043, prompt: 30, generated: 432, total: 462, genTps: 16.59, e2eTps: 17.74,
+          preview: "The **Theory of Evolution** is one of the most well-supported scientific explanations for how life changes over time. Here's a clear breakdown: ## Core Idea Species change gradually over generations" },
+        { id: 3, elapsed: 26.042, prompt: 30, generated: 432, total: 462, genTps: 16.59, e2eTps: 17.74,
+          preview: "The **Theory of Evolution** is one of the most well-supported scientific explanations for how life changes over time. Here's a clear breakdown: ## Core Idea Species change gradually over generations" },
+        { id: 4, elapsed: 25.608, prompt: 30, generated: 425, total: 455, genTps: 16.60, e2eTps: 17.77,
+          preview: "I'll explain the theory of evolution clearly, covering its core principles and evidence. ## What Evolution Is Evolution is the process by which populations of organisms change over generations. It's" },
+        { id: 5, elapsed: 26.043, prompt: 30, generated: 432, total: 462, genTps: 16.59, e2eTps: 17.74,
+          preview: "The **Theory of Evolution** is one of the most well-supported scientific explanations for how life changes over time. Here's a clear breakdown: ## Core Idea Species change gradually over generations" },
+        { id: 6, elapsed: 26.043, prompt: 30, generated: 432, total: 462, genTps: 16.59, e2eTps: 17.74,
+          preview: "The **Theory of Evolution** is one of the most well-supported scientific explanations for how life changes over time. Here's a clear breakdown: ## Core Idea Species change gradually over generations" }
+      ]
+    },
+    {
+      concurrency: 7,
+      wallClock: 27.901,
+      totalPrompt: 210,
+      totalGenerated: 3017,
+      totalTokens: 3227,
+      cumGenTps: 108.13,
+      cumE2eTps: 115.66,
+      avgGenTps: 15.49,
+      avgE2eTps: 16.56,
+      runs: [
+        { id: 1, elapsed: 27.898, prompt: 30, generated: 432, total: 462, genTps: 15.48, e2eTps: 16.56,
+          preview: "The **Theory of Evolution** is one of the most well-supported scientific explanations for how life changes over time. Here's a clear breakdown: ## Core Idea Species change gradually over generations" },
+        { id: 2, elapsed: 27.899, prompt: 30, generated: 432, total: 462, genTps: 15.48, e2eTps: 16.56,
+          preview: "The **Theory of Evolution** is one of the most well-supported scientific explanations for how life changes over time. Here's a clear breakdown: ## Core Idea Species change gradually over generations" },
+        { id: 3, elapsed: 27.440, prompt: 30, generated: 425, total: 455, genTps: 15.49, e2eTps: 16.58,
+          preview: "I'll explain the theory of evolution clearly, covering its core principles and evidence. ## What Evolution Is Evolution is the process by which populations of organisms change over generations. It's" },
+        { id: 4, elapsed: 27.898, prompt: 30, generated: 432, total: 462, genTps: 15.48, e2eTps: 16.56,
+          preview: "The **Theory of Evolution** is one of the most well-supported scientific explanations for how life changes over time. Here's a clear breakdown: ## Core Idea Species change gradually over generations" },
+        { id: 5, elapsed: 27.899, prompt: 30, generated: 432, total: 462, genTps: 15.49, e2eTps: 16.56,
+          preview: "The **Theory of Evolution** is one of the most well-supported scientific explanations for how life changes over time. Here's a clear breakdown: ## Core Idea Species change gradually over generations" },
+        { id: 6, elapsed: 27.898, prompt: 30, generated: 432, total: 462, genTps: 15.48, e2eTps: 16.56,
+          preview: "The **Theory of Evolution** is one of the most well-supported scientific explanations for how life changes over time. Here's a clear breakdown: ## Core Idea Species change gradually over generations" },
+        { id: 7, elapsed: 27.897, prompt: 30, generated: 432, total: 462, genTps: 15.49, e2eTps: 16.56,
+          preview: "The **Theory of Evolution** is one of the most well-supported scientific explanations for how life changes over time. Here's a clear breakdown: ## Core Idea Species change gradually over generations" }
+      ]
+    }
+  ]
+};
+
+const labels = BENCHMARK.sessions.map(s => s.concurrency);
+const maxCumGen = Math.max(...BENCHMARK.sessions.map(s => s.cumGenTps));
+
+const chartDefaults = {
+  responsive: true,
+  maintainAspectRatio: false,
+  interaction: { mode: 'index', intersect: false },
+  plugins: {
+    legend: {
+      labels: { color: '#3d3d38', font: { family: 'DM Sans', size: 12 }, padding: 16, usePointStyle: true }
+    },
+    tooltip: {
+      backgroundColor: '#ffffff',
+      borderColor: '#c8c4ba',
+      titleColor: '#0f0f0d',
+      bodyColor: '#3d3d38',
+      borderWidth: 1,
+      titleFont: { family: 'DM Sans', weight: '600' },
+      bodyFont: { family: 'JetBrains Mono', size: 12 },
+      padding: 12,
+      cornerRadius: 8
+    }
+  },
+  scales: {
+    x: {
+      grid: { color: 'rgba(15,15,13,0.06)' },
+      ticks: { color: '#5e5e56', font: { family: 'JetBrains Mono', size: 11 } },
+      title: { display: true, text: 'Concurrent Sessions', color: '#5e5e56', font: { size: 11 } }
+    },
+    y: {
+      grid: { color: 'rgba(15,15,13,0.06)' },
+      ticks: { color: '#5e5e56', font: { family: 'JetBrains Mono', size: 11 } }
+    }
+  }
+};
+
+// Aggregate chart
+new Chart(document.getElementById('chartAggregate'), {
+  type: 'line',
+  data: {
+    labels,
+    datasets: [
+      {
+        label: 'Cumulative Gen tok/s',
+        data: BENCHMARK.sessions.map(s => s.cumGenTps),
+        borderColor: '#1a5c5c',
+        backgroundColor: 'rgba(26,92,92,0.12)',
+        fill: true,
+        tension: 0.3,
+        pointRadius: 5,
+        pointHoverRadius: 7,
+        borderWidth: 2.5
+      },
+      {
+        label: 'Cumulative E2E tok/s',
+        data: BENCHMARK.sessions.map(s => s.cumE2eTps),
+        borderColor: '#1a6b5c',
+        backgroundColor: 'rgba(26,107,92,0.10)',
+        fill: true,
+        tension: 0.3,
+        pointRadius: 5,
+        pointHoverRadius: 7,
+        borderWidth: 2.5
+      },
+      {
+        label: 'Avg Gen tok/s (per run)',
+        data: BENCHMARK.sessions.map(s => s.avgGenTps),
+        borderColor: '#9a6800',
+        borderDash: [6, 4],
+        tension: 0.3,
+        pointRadius: 4,
+        borderWidth: 2,
+        fill: false
+      }
+    ]
+  },
+  options: {
+    ...chartDefaults,
+    scales: {
+      ...chartDefaults.scales,
+      y: { ...chartDefaults.scales.y, title: { display: true, text: 'tok/s', color: '#5e5e56', font: { size: 11 } } }
+    }
+  }
+});
+
+// Per-run chart
+new Chart(document.getElementById('chartPerRun'), {
+  type: 'bar',
+  data: {
+    labels,
+    datasets: [{
+      label: 'Avg Gen tok/s',
+      data: BENCHMARK.sessions.map(s => s.avgGenTps),
+      backgroundColor: labels.map((_, i) => {
+        const v = BENCHMARK.sessions[i].avgGenTps;
+        const max = 21.08;
+        const t = v / max;
+        return `rgba(26, 92, 92, ${0.35 + t * 0.55})`;
+      }),
+      borderColor: '#1a5c5c',
+      borderWidth: 1,
+      borderRadius: 6
+    }]
+  },
+  options: {
+    ...chartDefaults,
+    plugins: { ...chartDefaults.plugins, legend: { display: false } },
+    scales: {
+      ...chartDefaults.scales,
+      y: { ...chartDefaults.scales.y, title: { display: true, text: 'tok/s', color: '#6b7589', font: { size: 11 } }, beginAtZero: true }
+    }
+  }
+});
+
+// Wall clock chart
+new Chart(document.getElementById('chartWallClock'), {
+  type: 'bar',
+  data: {
+    labels,
+    datasets: [{
+      label: 'Wall Clock (s)',
+      data: BENCHMARK.sessions.map(s => s.wallClock),
+      backgroundColor: labels.map((_, i) => {
+        const v = BENCHMARK.sessions[i].wallClock;
+        const min = 20.874, max = 33.290;
+        const t = 1 - (v - min) / (max - min);
+        return `rgba(26, 107, 92, ${0.30 + t * 0.50})`;
+      }),
+      borderColor: '#1a6b5c',
+      borderWidth: 1,
+      borderRadius: 6
+    }]
+  },
+  options: {
+    ...chartDefaults,
+    plugins: { ...chartDefaults.plugins, legend: { display: false } },
+    scales: {
+      ...chartDefaults.scales,
+      y: { ...chartDefaults.scales.y, title: { display: true, text: 'seconds', color: '#5e5e56', font: { size: 11 } }, beginAtZero: false, min: 18 }
+    }
+  }
+});
+
+// Main summary table
+const mainTbody = document.querySelector('#summaryTableMain tbody');
+const maxCumGenVal = Math.max(...BENCHMARK.sessions.map(s => s.cumGenTps));
+const maxCumE2eVal = Math.max(...BENCHMARK.sessions.map(s => s.cumE2eTps));
+const maxAvgGenVal = Math.max(...BENCHMARK.sessions.map(s => s.avgGenTps));
+const minWallVal = Math.min(...BENCHMARK.sessions.map(s => s.wallClock));
+
+function fmt(val, best, cls) {
+  const str = typeof val === 'number' && val > 100 ? val.toFixed(2) : val.toFixed(2);
+  return best ? `<span class="${cls}">${str}</span>` : str;
+}
+
+BENCHMARK.sessions.forEach(session => {
+  const tr = document.createElement('tr');
+  const isBestCumGen = session.cumGenTps === maxCumGenVal;
+  const isBestCumE2e = session.cumE2eTps === maxCumE2eVal;
+  const isBestAvgGen = session.avgGenTps === maxAvgGenVal;
+  const isFastest = session.wallClock === minWallVal;
+  tr.innerHTML = `
+    <td><div class="conc-cell"><span class="conc-num">${session.concurrency}</span> session${session.concurrency > 1 ? 's' : ''}</div></td>
+    <td class="num">${fmt(session.cumGenTps, isBestCumGen, 'best')}</td>
+    <td class="num">${fmt(session.cumE2eTps, isBestCumE2e, 'best')}</td>
+    <td class="num">${fmt(session.avgGenTps, isBestAvgGen, 'best')}</td>
+    <td class="num">${isFastest ? `<span class="fast">${session.wallClock.toFixed(1)} s</span>` : session.wallClock.toFixed(1) + ' s'}</td>
+  `;
+  mainTbody.appendChild(tr);
+});
+
+// One-line-per-concurrency summary
+document.getElementById('resultsLines').innerHTML = BENCHMARK.sessions.map(s => {
+  const label = s.concurrency === 1 ? '1 concurrent' : `${s.concurrency} concurrent`;
+  return `${label} → <span class="tok">${s.cumGenTps.toFixed(2)} tok/s</span>`;
+}).join('\n');
+
+// Detail table
+const tbody = document.querySelector('#summaryTable tbody');
+const detailPanels = document.getElementById('detailPanels');
+let activeRow = null;
+
+BENCHMARK.sessions.forEach((session, idx) => {
+  const tr = document.createElement('tr');
+  tr.dataset.idx = idx;
+  const barPct = (session.cumGenTps / maxCumGen * 100).toFixed(0);
+  tr.innerHTML = `
+    <td><span class="concurrency-badge">${session.concurrency}</span></td>
+    <td class="num mono">${session.wallClock.toFixed(2)} s</td>
+    <td class="num mono">${session.totalGenerated.toLocaleString()}</td>
+    <td class="num">
+      <div class="bar-cell">
+        <div class="mini-bar"><div class="mini-bar-fill" style="width:${barPct}%"></div></div>
+        <span class="mono">${session.cumGenTps.toFixed(2)}</span>
+      </div>
+    </td>
+    <td class="num mono">${session.cumE2eTps.toFixed(2)}</td>
+    <td class="num mono">${session.avgGenTps.toFixed(2)}</td>
+    <td class="num mono">${session.avgE2eTps.toFixed(2)}</td>
+  `;
+  tbody.appendChild(tr);
+
+  const panel = document.createElement('div');
+  panel.className = 'detail-panel';
+  panel.id = `panel-${idx}`;
+  panel.innerHTML = `
+    <div class="detail-header">
+      <h3>${session.concurrency} Concurrent Session${session.concurrency > 1 ? 's' : ''}</h3>
+    </div>
+    <div class="detail-stats">
+      <div class="detail-stat"><div class="label">Wall Clock</div><div class="value">${session.wallClock.toFixed(3)} s</div></div>
+      <div class="detail-stat"><div class="label">Total Generated</div><div class="value">${session.totalGenerated.toLocaleString()} tokens</div></div>
+      <div class="detail-stat"><div class="label">Cum Gen tok/s</div><div class="value">${session.cumGenTps.toFixed(2)}</div></div>
+      <div class="detail-stat"><div class="label">Cum E2E tok/s</div><div class="value">${session.cumE2eTps.toFixed(2)}</div></div>
+      <div class="detail-stat"><div class="label">Avg Gen tok/s</div><div class="value">${session.avgGenTps.toFixed(2)}</div></div>
+      <div class="detail-stat"><div class="label">Avg E2E tok/s</div><div class="value">${session.avgE2eTps.toFixed(2)}</div></div>
+    </div>
+    <div class="runs-grid">
+      ${session.runs.map(run => `
+        <div class="run-card">
+          <div class="run-card-header">
+            <span class="run-id">Run ${run.id}</span>
+            <span class="mono" style="font-size:0.78rem;color:var(--text-muted)">${run.elapsed.toFixed(2)} s</span>
+          </div>
+          <dl class="run-metrics">
+            <dt>Generated</dt><dd>${run.generated} tok</dd>
+            <dt>Gen tok/s</dt><dd>${run.genTps.toFixed(2)}</dd>
+            <dt>E2E tok/s</dt><dd>${run.e2eTps.toFixed(2)}</dd>
+            <dt>Total</dt><dd>${run.total} tok</dd>
+          </dl>
+          <div class="run-preview">${run.preview}</div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+  detailPanels.appendChild(panel);
+
+  tr.addEventListener('click', () => {
+    if (activeRow === idx) {
+      tr.classList.remove('active');
+      panel.classList.remove('visible');
+      activeRow = null;
+      return;
+    }
+    document.querySelectorAll('#summaryTable tbody tr').forEach(r => r.classList.remove('active'));
+    document.querySelectorAll('.detail-panel').forEach(p => p.classList.remove('visible'));
+    tr.classList.add('active');
+    panel.classList.add('visible');
+    activeRow = idx;
+  });
+});
+
+// Auto-expand peak throughput row
+const peakIdx = BENCHMARK.sessions.findIndex(s => s.concurrency === 7);
+document.querySelector(`#summaryTable tbody tr[data-idx="${peakIdx}"]`).click();
+</script>
+</body>
+</html>

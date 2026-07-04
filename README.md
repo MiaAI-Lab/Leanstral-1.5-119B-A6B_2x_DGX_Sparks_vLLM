@@ -30,8 +30,7 @@ The setup uses:
 The vLLM launch options follow the Hugging Face model card recommendations where
 compatible with this hardware:
 
-- `--tool-call-parser mistral`
-- `--enable-auto-tool-choice`
+- Optional `--tool-call-parser mistral` and `--enable-auto-tool-choice`
 - `--reasoning-parser mistral`
 - Optional `--speculative-config` with EAGLE draft decoding
 - Ray distributed serving
@@ -265,6 +264,8 @@ All important settings can be overridden with environment variables:
 | `MAX_NUM_BATCHED_TOKENS`     | `16384`                                  |
 | `MM_PROCESSOR_CACHE_TYPE`    | `lru`                                   |
 | `ENABLE_EAGLE`               | `0`                                     |
+| `ENABLE_TOOL_CALLS`          | `0`                                     |
+| `VLLM_ENGINE_ITERATION_TIMEOUT_S` | `600`                              |
 | `EAGLE_DRAFT_MODEL`          | `mistralai/Mistral-Small-4-119B-2603-eagle` |
 | `EAGLE_NUM_SPECULATIVE_TOKENS` | `3`                                   |
 | `EAGLE_MAX_MODEL_LEN`        | `65536`                                 |
@@ -334,3 +335,9 @@ ssh 10.0.0.2 "docker ps --filter name=leanstral-vllm"
 - `MM_PROCESSOR_CACHE_TYPE=lru` is set explicitly because the shared-memory
   multimodal processor cache path emitted `shared_worker_lock` warnings in this
   multi-node Ray setup.
+- Tool auto-choice is disabled by default. In local testing, structured-output
+  and token-bitmask paths appeared near stalls. Enable tool parsing only when
+  needed with `ENABLE_TOOL_CALLS=1 ./start.sh`.
+- `VLLM_ENGINE_ITERATION_TIMEOUT_S=600` extends vLLM's default engine iteration
+  timeout so long first-run JIT or worker synchronization stalls are less likely
+  to kill the engine immediately.

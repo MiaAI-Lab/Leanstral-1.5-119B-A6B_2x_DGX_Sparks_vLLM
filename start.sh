@@ -12,6 +12,8 @@ MAX_NUM_SEQS="${MAX_NUM_SEQS:-7}"
 MAX_NUM_BATCHED_TOKENS="${MAX_NUM_BATCHED_TOKENS:-16384}"
 MM_PROCESSOR_CACHE_TYPE="${MM_PROCESSOR_CACHE_TYPE:-lru}"
 ENABLE_EAGLE="${ENABLE_EAGLE:-0}"
+ENABLE_TOOL_CALLS="${ENABLE_TOOL_CALLS:-0}"
+VLLM_ENGINE_ITERATION_TIMEOUT_S="${VLLM_ENGINE_ITERATION_TIMEOUT_S:-600}"
 EAGLE_DRAFT_MODEL="${EAGLE_DRAFT_MODEL:-mistralai/Mistral-Small-4-119B-2603-eagle}"
 EAGLE_NUM_SPECULATIVE_TOKENS="${EAGLE_NUM_SPECULATIVE_TOKENS:-3}"
 EAGLE_MAX_MODEL_LEN="${EAGLE_MAX_MODEL_LEN:-65536}"
@@ -47,6 +49,7 @@ DOCKER_COMMON_ARGS=(
   -e "GLOO_SOCKET_IFNAME=${CX7_IFACE}"
   -e "NCCL_SOCKET_IFNAME=${CX7_IFACE}"
   -e "RAY_memory_usage_threshold=${RAY_MEMORY_USAGE_THRESHOLD}"
+  -e "VLLM_ENGINE_ITERATION_TIMEOUT_S=${VLLM_ENGINE_ITERATION_TIMEOUT_S}"
   -e "RAY_TMPDIR=${HEAD_RAY_TMPDIR}"
   -e "RAY_ADDRESS=${HEAD_IP}:${RAY_PORT}"
   -e "RAY_object_spilling_config={\"type\":\"filesystem\",\"params\":{\"directory_path\":\"${HEAD_RAY_SPILL_DIR}\"}}"
@@ -106,6 +109,7 @@ start_ray_head() {
   local attention_arg=""
   local eager_arg=""
   local speculative_arg=""
+  local tool_args=""
   if [[ -n "${ATTENTION_BACKEND}" ]]; then
     attention_arg="--attention-backend '${ATTENTION_BACKEND}'"
   fi
@@ -114,6 +118,9 @@ start_ray_head() {
   fi
   if [[ "${ENABLE_EAGLE}" == "1" ]]; then
     speculative_arg="--speculative-config '{\"model\":\"${EAGLE_DRAFT_MODEL}\",\"num_speculative_tokens\":${EAGLE_NUM_SPECULATIVE_TOKENS},\"method\":\"eagle\",\"max_model_len\":\"${EAGLE_MAX_MODEL_LEN}\"}'"
+  fi
+  if [[ "${ENABLE_TOOL_CALLS}" == "1" ]]; then
+    tool_args="--tool-call-parser mistral --enable-auto-tool-choice"
   fi
   mkdir -p "${HEAD_RAY_TMPDIR}"
   mkdir -p "${HEAD_RAY_SPILL_DIR}"
@@ -138,8 +145,7 @@ start_ray_head() {
         --distributed-executor-backend ray \
         ${attention_arg} \
         ${speculative_arg} \
-        --tool-call-parser mistral \
-        --enable-auto-tool-choice \
+        ${tool_args} \
         --reasoning-parser mistral"
 }
 
@@ -173,6 +179,7 @@ start_ray_worker() {
     -e 'GLOO_SOCKET_IFNAME=${CX7_IFACE}' \
     -e 'NCCL_SOCKET_IFNAME=${CX7_IFACE}' \
     -e 'RAY_memory_usage_threshold=${RAY_MEMORY_USAGE_THRESHOLD}' \
+    -e 'VLLM_ENGINE_ITERATION_TIMEOUT_S=${VLLM_ENGINE_ITERATION_TIMEOUT_S}' \
     -e 'RAY_TMPDIR=${WORKER_RAY_TMPDIR}' \
     -e 'RAY_object_spilling_config={\"type\":\"filesystem\",\"params\":{\"directory_path\":\"${WORKER_RAY_SPILL_DIR}\"}}' \
     --entrypoint bash \
